@@ -1,0 +1,216 @@
+----QUERYS-----
+
+-- 1. Listado de inscripciones con nombre de estudiante y curso
+SELECT 
+    e.nombre_completo AS nombre,
+    c.nombre_curso AS curso,
+    i.fecha_inscripcion
+FROM inscripcion i
+JOIN estudiante e ON i.id_estudiante = e.id_estudiante
+JOIN curso c      ON i.id_curso = c.id_curso;
+
+-- 2. Docentes con más de 5 años de experiencia
+SELECT 
+    c.nombre_curso AS curso, 
+    d.nombre_completo AS docente, 
+    d.anos_experiencia AS experiencia 
+FROM curso c 
+JOIN docente d ON c.id_docente = d.id_docente 
+WHERE d.anos_experiencia > 5 
+ORDER BY experiencia ASC;
+
+-- 3. Promedio de calificaciones por curso
+SELECT 
+    c.nombre_curso AS curso, 
+    ROUND(AVG(i.calificacion_final), 2) AS promedio 
+FROM inscripcion i 
+JOIN curso c ON i.id_curso = c.id_curso 
+GROUP BY c.nombre_curso 
+ORDER BY promedio DESC;
+
+-- 4. Estudiantes matriculados en más de una materia
+SELECT 
+    e.nombre_completo AS estudiantes, 
+    COUNT(c.id_curso) AS materias_matriculadas 
+FROM inscripcion i 
+JOIN estudiante e ON i.id_estudiante = e.id_estudiante 
+JOIN curso c      ON i.id_curso = c.id_curso 
+GROUP BY e.nombre_completo 
+HAVING COUNT(*) > 1;
+
+-- 5. Agregar columna de estado académico a la tabla estudiante
+ALTER TABLE estudiante 
+ADD COLUMN estado_academico VARCHAR(100) NOT NULL;
+
+-- 6. Eliminar un docente específico por ID
+DELETE FROM docente 
+WHERE id_docente = 2;
+
+-- 7. Cursos que tienen más de 2 estudiantes inscritos
+SELECT 
+    c.nombre_curso AS curso, 
+    COUNT(i.id_estudiante) AS estudiantes 
+FROM inscripcion i 
+JOIN curso c      ON i.id_curso = c.id_curso 
+JOIN estudiante e ON i.id_estudiante = e.id_estudiante 
+GROUP BY c.nombre_curso 
+HAVING COUNT(*) > 2;
+
+-- 8. Estudiantes con promedio superior al promedio general de la institución
+SELECT 
+    e.id_estudiante, 
+    e.nombre_completo, 
+    ROUND(AVG(i.calificacion_final), 2) AS promedio_estudiante
+FROM estudiante e
+JOIN inscripcion i ON e.id_estudiante = i.id_estudiante
+GROUP BY e.id_estudiante, e.nombre_completo
+HAVING AVG(i.calificacion_final) > (
+    SELECT AVG(calificacion_final) 
+    FROM inscripcion
+);
+
+-- 9. Nombres de carreras con estudiantes inscritos en cursos del semestre ≥ 2 con IN
+SELECT DISTINCT carrera_estudiante
+FROM estudiante
+WHERE id_estudiante IN (
+    SELECT i.id_estudiante
+    FROM inscripcion i
+    JOIN curso c ON i.id_curso = c.id_curso
+    WHERE c.semestre >= 2
+);
+
+-- 9.1. Nombres de carreras con estudiantes inscritos en cursos del semestre ≥ 2 con EXISTS
+SELECT DISTINCT e.carrera_estudiante
+FROM estudiante e
+WHERE EXISTS (
+    SELECT 1
+    FROM inscripcion i
+    JOIN curso c ON i.id_curso = c.id_curso
+    WHERE i.id_estudiante = e.id_estudiante
+      AND c.semestre >= 2
+);
+
+-- 10. INDICADORES
+SELECT 
+    e.carrera_estudiante,
+    COUNT(DISTINCT e.id_estudiante) AS total_estudiantes,
+    ROUND(AVG(i.calificacion_final), 2) AS promedio_general,
+    MAX(i.calificacion_final) AS mejor_nota,
+    MIN(i.calificacion_final) AS peor_nota,
+    SUM(i.calificacion_final) AS suma_total_notas
+FROM estudiante e
+JOIN inscripcion i ON e.id_estudiante = i.id_estudiante
+GROUP BY e.carrera_estudiante;
+
+-- 11. Creacion vista
+CREATE VIEW vista_historial_academico AS
+SELECT 
+    e.nombre_completo AS nombre_estudiante,
+    c.nombre_curso,
+    d.nombre_completo AS nombre_docente,
+    c.semestre,
+    i.calificacion_final
+FROM inscripcion i
+JOIN estudiante e 
+    ON i.id_estudiante = e.id_estudiante
+JOIN curso c 
+    ON i.id_curso = c.id_curso
+JOIN docente d 
+    ON c.id_docente = d.id_docente;
+
+SELECT * FROM revisor_academico;
+
+-- 12. Uso del GRANT SELECT
+DROP ROLE revisor_academico;
+
+CREATE ROLE revisor_academico;
+
+GRANT SELECT ON mi_bbdd.vista_historial_academico 
+TO revisor_academico;
+
+-- 13. Uso del REVOKE
+REVOKE UPDATE
+ON mi_bbdd.inscripcion
+FROM revisor_academico;
+
+SHOW GRANTS FOR revisor_academico;
+
+-- 14.
+START TRANSACTION;
+
+UPDATE inscripcion
+SET calificacion_final = 4.5
+WHERE id_inscripcion = 1;
+
+SAVEPOINT cambio1;
+
+UPDATE inscripcion
+SET calificacion_final = 2.0
+WHERE id_inscripcion = 2;
+
+SHOW PROCESSLIST;
+SELECT * FROM information_schema.innodb_trx;
+
+ROLLBACK TO cambio1;
+
+COMMIT
+
+
+
+-----DDL-----
+CREATE TABLE `curso` (
+  `id_curso` int NOT NULL AUTO_INCREMENT,
+  `nombre_curso` varchar(30) DEFAULT NULL,
+  `codigo` int DEFAULT NULL,
+  `creditos` tinyint DEFAULT NULL,
+  `semestre` tinyint DEFAULT NULL,
+  `id_docente` int DEFAULT NULL,
+  PRIMARY KEY (`id_curso`),
+  UNIQUE KEY `codigo` (`codigo`),
+  KEY `id_docente` (`id_docente`),
+  CONSTRAINT `curso_ibfk_1` FOREIGN KEY (`id_docente`) REFERENCES `docente` (`id_docente`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `docente` (
+  `id_docente` int NOT NULL AUTO_INCREMENT,
+  `nombre_completo` varchar(30) DEFAULT NULL,
+  `correo_institucional` varchar(30) DEFAULT NULL,
+  `departamento_academico` varchar(30) DEFAULT NULL,
+  `anos_experiencia` tinyint DEFAULT NULL,
+  PRIMARY KEY (`id_docente`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `estudiante` (
+  `id_estudiante` int NOT NULL AUTO_INCREMENT,
+  `nombre_completo` varchar(100) DEFAULT NULL,
+  `correo_estudiante` varchar(100) DEFAULT NULL,
+  `genero_estudiante` varchar(100) DEFAULT NULL,
+  `identificacion_estudiante` int DEFAULT NULL,
+  `carrera_estudiante` varchar(50) DEFAULT NULL,
+  `fecha_nacimiento` date DEFAULT NULL,
+  `fecha_ingreso` date DEFAULT NULL,
+  PRIMARY KEY (`id_estudiante`),
+  UNIQUE KEY `identificacion_estudiante` (`identificacion_estudiante`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `inscripcion` (
+  `id_inscripcion` int NOT NULL AUTO_INCREMENT,
+  `id_estudiante` int NOT NULL,
+  `id_curso` int DEFAULT NULL,
+  `fecha_inscripcion` date DEFAULT NULL,
+  `calificacion_final` decimal(2,1) NOT NULL,
+  PRIMARY KEY (`id_inscripcion`),
+  KEY `id_estudiante` (`id_estudiante`),
+  KEY `id_curso` (`id_curso`),
+  CONSTRAINT `id_curso` FOREIGN KEY (`id_curso`) REFERENCES `curso` (`id_curso`),
+  CONSTRAINT `id_estudiante` FOREIGN KEY (`id_estudiante`) REFERENCES `estudiante` (`id_estudiante`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+
+
+
+
+
+

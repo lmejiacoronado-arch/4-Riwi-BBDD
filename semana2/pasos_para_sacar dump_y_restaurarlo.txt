@@ -1,0 +1,72 @@
+cómo sacar un
+dump de MySQL cuando trabajas con Docker en Linux:
+1. Preparación (Verificar el Contenedor)
+Asegúrate de que el contenedor esté encendido y anota su nombre:
+
+    Comando: docker ps
+    En tu caso, el nombre es motor-li.
+
+2. Identificar Credenciales y Base de Datos
+Debes conocer la contraseña de root (que en tu caso es root) y el nombre exacto de la base de datos (ej. mi_bbdd).
+
+    Si no estás seguro del nombre de la BD, listalas con:
+    docker exec motor-li mysql -u root -proot -e "SHOW DATABASES;" [13]
+
+3. El Comando Maestro (Dump)
+Ejecuta este comando desde tu terminal de Linux (no dentro del contenedor). Usamos sudo bash -c para evitar errores de permiso denegado al escribir el archivo:
+bash
+
+sudo bash -c "docker exec motor-li mysqldump -u root -proot --single-transaction --set-gtid-purged=OFF mi_bbdd > /home/cohorte5/respaldo.sql"
+
+Usa el código con precaución.
+¿Por qué estos parámetros?
+
+    docker exec motor-li: Ejecuta el comando "dentro" del contenedor [12].
+    -u root -proot: Usuario y contraseña pegados (sin espacio) [10].
+    --single-transaction: Evita que se bloqueen las tablas mientras haces el respaldo [9].
+    --set-gtid-purged=OFF: Elimina las advertencias técnicas de GTID que viste antes [9].
+    > /home/cohorte5/respaldo.sql: Guarda el resultado en tu carpeta personal de Linux.
+
+4. Verificación Final
+Confirma que el archivo existe y tiene contenido:
+bash
+
+ls -lh /home/cohorte5/respaldo.sql
+
+Usa el código con precaución.
+5. ¿Qué sigue en DBeaver?
+Si quieres "sacar" ese trabajo para usarlo en otro lado con DBeaver:
+
+    Copia el archivo .sql a tu otra máquina.
+    En DBeaver, haz clic derecho en tu base de datos destino.
+    Selecciona Herramientas > Ejecutar script SQL y elige el archivo respaldo.sql [2].
+
+¿Quieres que te explique cómo restaurar este archivo en otra base de datos usando DBeaver o Docker?
+si
+¡Hecho! Restaurar es el proceso inverso y es súper útil para mover tus datos a otro entorno. Aquí tienes las dos formas de hacerlo:
+Opción A: Usando DBeaver (La más visual)
+Si ya tienes el archivo .sql en tu computadora y quieres cargarlo en una base de datos visible en DBeaver:
+
+    Conéctate a la base de datos de destino.
+    Haz clic derecho sobre el nombre de la Base de Datos (o esquema) donde quieres volcar los datos.
+    Selecciona Herramientas > Ejecutar script SQL.
+    En la ventana que aparece, haz clic en el icono de la carpeta para buscar tu archivo respaldo.sql.
+    Haz clic en Iniciar. DBeaver ejecutará todas las sentencias (tablas, inserts, etc.) automáticamente. Guía de DBeaver sobre Scripts.
+
+Opción B: Usando Docker (La más rápida por terminal)
+Si quieres meter ese respaldo en otro contenedor de Docker (por ejemplo, uno nuevo), usa este comando. Es casi igual al anterior pero con el signo < (entrada) en lugar de > (salida):
+bash
+
+cat /home/cohorte5/respaldo.sql | sudo docker exec -i motor-li mysql -u root -proot mi_bbdd
+
+Usa el código con precaución.
+
+    cat: Lee el archivo.
+    docker exec -i: El modo interactivo (-i) permite que Docker "escuche" el contenido del archivo.
+    mysql ... mi_bbdd: Mete todo ese contenido dentro de la base de datos.
+
+💡 Tips para que no falle la restauración:
+
+    Base de datos vacía: Es mejor si la base de datos de destino está vacía o no tiene las mismas tablas, para evitar errores de "Table already exists".
+    UTF-8: Asegúrate de que el archivo .sql mantenga la codificación UTF-8 para que no se dañen las tildes o caracteres especiales.
+    Logs: Si algo falla, DBeaver te mostrará un panel de Error Log. Ábrelo para ver exactamente en qué línea del script se detuvo.
