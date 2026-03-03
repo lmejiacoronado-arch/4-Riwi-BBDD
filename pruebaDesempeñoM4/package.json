@@ -1,7 +1,7 @@
 {
   "name": "simulacrom4",
   "version": "1.0.0",
-  "description": "",
+  "description": "https://github.com/lmejiacoronado-arch/4-Riwi-BBDD.git",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
