@@ -4,11 +4,16 @@ import { initDatabase } from './services/dbInitService.js';
 // Importaremos la conexión de Mongo más adelante cuando hagamos ese archivo
 import { connectMongo } from './config/mongo.js'; 
 import { migrateCsvToPostgres } from './services/migrateService.js';
+import { dropAllTables } from './services/cleanDbService.js';
+import { migrationRoute } from './routes/migrationRoute.js'
 
 const app = express();
 
 // Middlewares básicos para entender JSON
 app.use(express.json());
+
+app.use('/api',migrationRoute);
+
 
 /**
  * FUNCIÓN DE ARRANQUE
@@ -18,6 +23,9 @@ app.use(express.json());
 async function startServer() {
     try {
         console.log("🚀 Arrancando sistema...");
+        
+        // 1. Borramos todo lo viejo (Hard Reset)
+        await dropAllTables();
 
         // 1. Inicializamos las tablas de PostgreSQL
         await initDatabase();
