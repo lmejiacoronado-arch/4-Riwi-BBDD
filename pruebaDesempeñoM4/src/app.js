@@ -1,53 +1,64 @@
 import express from 'express';
 import { env } from './config/env.js';
 import { initDatabase } from './services/dbInitService.js';
-// Importaremos la conexión de Mongo más adelante cuando hagamos ese archivo
 import { connectMongo } from './config/mongo.js'; 
 import { migrateCsvToPostgres } from './services/migrateService.js';
 import { dropAllTables } from './services/cleanDbService.js';
-import { migrationRoute } from './routes/migrationRoute.js'
+
+// 1. IMPORTACIÓN DE RUTAS
+// Importamos el archivo que creamos con GET, POST, PUT y DELETE
+import migrationRoute from './routes/migrationRoute.js';
+import customerRoute from './routes/customerRoute.js'; 
 
 const app = express();
 
-// Middlewares básicos para entender JSON
+/**
+ * MIDDLEWARES
+ * express.json() es FUNDAMENTAL ahora. Sin esto, req.body llegará vacío
+ * en tus peticiones POST y PUT de Postman.
+ */
 app.use(express.json());
 
-app.use('/api',migrationRoute);
-
+// 2. REGISTRO DE ESCENARIOS (RUTAS)
+// Todo lo que pase por estas rutas tendrá el prefijo /api
+app.use('/api', migrationRoute);
+app.use('/api', customerRoute);
 
 /**
- * FUNCIÓN DE ARRANQUE
- * Usamos una función async para asegurar que las tablas se creen
- * ANTES de que el servidor empiece a escuchar peticiones.
+ * FUNCIÓN DE ARRANQUE (FLUJO PRINCIPAL)
+ * Mantenemos la lógica de preparar la casa antes de recibir invitados.
  */
 async function startServer() {
     try {
-        console.log("🚀 Arrancando sistema...");
+        console.log("🚀 [Sistema]: Iniciando procesos de arranque...");
         
-        // 1. Borramos todo lo viejo (Hard Reset)
+        // Paso A: Limpieza total (Idempotencia de estructura)
         await dropAllTables();
 
-        // 1. Inicializamos las tablas de PostgreSQL
+        // Paso B: Creación de tablas según el modelo relacional
         await initDatabase();
 
-        // 2. Aquí conectaríamos con MongoDB
+        // Paso C: Conexión a la base de datos NoSQL (Logs)
         await connectMongo();
 
-        // 2. Aquí metemos la mercancia (CSV)
+        // Paso D: Ingesta del archivo CSV desorganizado
         await migrateCsvToPostgres();
 
-        // 3. Iniciamos el servidor Express
+        // Paso E: El servidor se pone a escuchar
         app.listen(env.port, () => {
-            console.log(`\x1b[36m%s\x1b[0m`, `⭐ Servidor listo en: http://localhost:${env.port}`);
+            console.log(`\n⭐ ========================================== ⭐`);
+            console.log(`✅ Servidor activo en: http://localhost:${env.port}`);
+            console.log(`📂 Rutas de Clientes: http://localhost:${env.port}/api/customers`);
+            console.log(`⭐ ========================================== ⭐\n`);
         });
 
     } catch (error) {
-        console.error("❌ No se pudo arrancar el servidor:", error);
+        console.error("❌ [Error Crítico]: El servidor no pudo iniciar:", error);
         process.exit(1);
     }
 }
 
-// ¡Llamamos a la función de arranque!
+// ¡Damos la señal de inicio!
 startServer();
 
 export default app;
