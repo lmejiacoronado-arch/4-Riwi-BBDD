@@ -6,9 +6,6 @@ const router = Router();
 // Endpoint: GET http://localhost:PORT/api/customers
 router.get('/customers', getAllCustomers);
 
-// Endpoint: GET http://localhost:PORT/api/customers/:id
-router.get('/customers/:id', getCustomerById);
-
 // Nueva Ruta: Creación (Create)
 router.post('/customers', createCustomer);
 
